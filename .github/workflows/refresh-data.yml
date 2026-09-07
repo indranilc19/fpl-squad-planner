@@ -1,0 +1,39 @@
+name: Refresh FPL data
+
+# Twice daily, matching the FPL API's own update cadence — prices and stats
+# don't change more often than that, so hourly would just be extra load for
+# no benefit. workflow_dispatch lets you trigger a run manually from the
+# Actions tab, which you'll want right after creating the repo so the site
+# has real data immediately instead of waiting for the next scheduled slot.
+on:
+  schedule:
+    - cron: "30 7,17 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch latest FPL data
+        run: python scripts/fetch_fpl_data.py
+
+      - name: Commit if data changed
+        run: |
+          if git diff --quiet -- data/players.json; then
+            echo "No changes — data is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/players.json
+          git commit -m "Refresh FPL data ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+          git push

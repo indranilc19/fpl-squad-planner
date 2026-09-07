@@ -1,0 +1,13 @@
+{
+  "title": "FPL Squad Planner",
+  "tagline": "Build a 15-man Fantasy Premier League squad against live prices, budget, and quota rules — no spreadsheet",
+  "type": "live",
+  "liveUrl": "",
+  "tags": ["Scheduled data pipeline", "GitHub Actions", "Zero-backend", "Client-side state"],
+  "highlights": [
+    "A GitHub Action fetches live FPL data twice daily and commits it into the repo, so the site reads a same-origin file with no live API call and no CORS workaround needed",
+    "Enforces real squad-building rules client-side: £100m budget, 2/5/5/3 position quota, 3-per-club cap",
+    "Every scheduled data refresh auto-redeploys on Vercel — the site is always at most a few hours stale, with zero manual updates"
+  ],
+  "featured": true
+}
