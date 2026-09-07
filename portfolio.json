@@ -1,13 +1,13 @@
 {
   "title": "FPL Squad Planner",
-  "tagline": "Build a 15-man Fantasy Premier League squad against live prices, or pull up your own team's picks, bank, and chips",
+  "tagline": "Plan a squad against live prices, load in your own team, check fixture difficulty, and track player availability",
   "type": "live",
   "liveUrl": "",
   "tags": ["Scheduled data pipeline", "Serverless proxy", "GitHub Actions", "Vercel Functions"],
   "highlights": [
-    "Two data strategies in one app: a GitHub Action refreshes shared player prices twice daily into a static file, while a Vercel serverless function proxies personal team lookups live — matching the fetch strategy to whether the data is shared or per-user",
-    "Enforces real squad-building rules client-side: £100m budget, 2/5/5/3 position quota, 3-per-club cap",
-    "Team lookup surfaces bank, team value, active chip, and this gameweek's transfer cost — and is explicit about the one thing the public API can't reliably provide (free transfers remaining) rather than guessing at it"
+    "Two data strategies matched to two data shapes: a GitHub Action refreshes shared prices, fixtures, and injury news twice daily into static files, while a Vercel serverless function proxies personal team/history lookups live",
+    "Squad planner, team lookup with gameweek-by-gameweek history, fixture-difficulty view, and an injury/availability feed all draw from the same player dataset",
+    "Deliberately doesn't fabricate two numbers the public API can't reliably support (free transfers remaining, and last season's result vs the same fixture) — shows what's verifiable and says plainly why the rest isn't shown"
   ],
   "featured": true
 }

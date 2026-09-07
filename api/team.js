@@ -1,8 +1,7 @@
-// Vercel serverless function — runs on Vercel's servers, not the browser.
-// The FPL entry/picks endpoints are personal (keyed by team ID) and can't be
-// pre-fetched for everyone the way data/players.json is, so this proxies each
-// request live: browser -> this same-origin function -> FPL API server-side
-// (no CORS, since it's a server-to-server call) -> back to the browser.
+// Vercel serverless function — proxies personal FPL data server-side, since
+// these endpoints (keyed by team ID) can't be pre-baked into a static file
+// the way the shared player list can, and the FPL API has no browser CORS
+// headers for a direct client-side call.
 
 module.exports = async (req, res) => {
   const id = String(req.query.id || '').trim();
@@ -29,10 +28,14 @@ module.exports = async (req, res) => {
       if (picksRes.ok) picks = await picksRes.json();
     }
 
-    // Short cache: personal data changes with transfers/lineup, but doesn't
-    // need to be truly instantaneous either.
+    // Gameweek-by-gameweek score history for the season so far — powers
+    // the History section. Public, no auth needed, same entry ID.
+    let history = null;
+    const historyRes = await fetch(`https://fantasy.premierleague.com/api/entry/${id}/history/`);
+    if (historyRes.ok) history = await historyRes.json();
+
     res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
-    res.status(200).json({ entry, picks });
+    res.status(200).json({ entry, picks, history });
   } catch (err) {
     res.status(502).json({ error: 'Could not reach the FPL API right now. Try again shortly.' });
   }
