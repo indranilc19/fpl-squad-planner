@@ -4,35 +4,48 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Squad Planner — FPL</title>
-<meta name="description" content="Build an FPL squad, look up your own team, check fixture difficulty, and track player availability." />
+<meta name="description" content="Plan an FPL squad on a real pitch layout, check your own team, fixture difficulty, and player availability." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#ffffff; --panel:#f4f6fb; --panel-line:#dde2ef;
     --ink:#132043; --ink-dim:#5b6785;
+    --navy:#0b1530;
     --blue:#1c3f94; --blue-dim:#e3e9f8;
     --red:#c4122f; --red-dim:#fbe4e7;
     --green:#1c7a3f; --green-dim:#e3f6e9;
     --amber:#a05a00; --amber-dim:#fdefdc;
-    --max:74rem;
+    --pitch-green:#1d6b34; --pitch-line:rgba(255,255,255,0.55);
+    --max:78rem;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{background:var(--bg); color:var(--ink); font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh;}
   h1,h2,h3,.num,.tab,.pill,button{font-family:'Archivo Narrow',sans-serif;}
   a{color:var(--blue);}
-  .wrap{max-width:var(--max); margin:0 auto; padding:2rem 1.5rem 5rem;}
+  .wrap{max-width:var(--max); margin:0 auto; padding:0 1.5rem 5rem;}
 
-  header.top{display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid var(--panel-line); padding-bottom:1.25rem; margin-bottom:1.25rem; flex-wrap:wrap; gap:1rem;}
-  .brand{font-weight:700; font-size:1.5rem; letter-spacing:0.01em; color:var(--blue);}
-  .brand span{color:var(--red);}
-  .subtitle{color:var(--ink-dim); font-size:0.85rem; margin-top:0.2rem; font-family:'Inter',sans-serif;}
-  .status{font-size:0.78rem; color:var(--ink-dim); text-align:right; font-family:'Inter',sans-serif;}
+  header.top{background:var(--navy); color:#fff; padding:0.9rem 0; margin-bottom:1.25rem;}
+  header.top .inner{max-width:var(--max); margin:0 auto; padding:0 1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;}
+  .brand-row{display:flex; align-items:center; gap:0.6rem;}
+  .brand-badge{width:2rem; height:2rem; border-radius:6px; background:var(--red); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem; flex:none;}
+  .brand{font-weight:700; font-size:1.2rem; letter-spacing:0.01em; color:#fff;}
+  .brand .sub{font-size:0.72rem; color:#aab3cc; font-weight:400; font-family:'Inter',sans-serif;}
+  .nav{display:flex; gap:0.3rem; flex-wrap:wrap;}
+  .nav button{background:transparent; border:none; color:#c6cce3; padding:0.5rem 0.9rem; border-radius:6px; cursor:pointer; font-size:0.92rem; font-weight:600;}
+  .nav button.active{background:rgba(255,255,255,0.12); color:#fff;}
+  .nav button:hover:not(.active){color:#fff;}
+  .status{font-size:0.75rem; color:#aab3cc; font-family:'Inter',sans-serif;}
 
-  .view-tabs{display:flex; gap:0.5rem; margin-bottom:1.5rem; flex-wrap:wrap;}
-  .view-tab{background:var(--panel); border:1px solid var(--panel-line); color:var(--ink-dim); padding:0.6rem 1.1rem; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:600;}
-  .view-tab.active{background:var(--blue); border-color:var(--blue); color:#fff;}
+  .gw-bar{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; background:var(--panel); border:1px solid var(--panel-line); border-radius:8px; padding:0.8rem 1.1rem; margin-bottom:1.25rem;}
+  .gw-nav{display:flex; align-items:center; gap:0.6rem;}
+  .gw-navbtn{background:#fff; border:1px solid var(--panel-line); width:2rem; height:2rem; border-radius:6px; cursor:pointer; font-size:1rem; color:var(--blue); display:flex; align-items:center; justify-content:center;}
+  .gw-navbtn:disabled{opacity:0.35; cursor:not-allowed;}
+  .gw-label{font-weight:700; font-size:1.1rem; color:var(--ink); min-width:4.5rem; text-align:center;}
+  .gw-deadline{font-size:0.8rem; color:var(--ink-dim); font-family:'Inter',sans-serif;}
+  .gw-countdown{font-weight:700; color:var(--red); font-family:'Archivo Narrow',sans-serif;}
+  .formation-select{background:#fff; border:1px solid var(--panel-line); color:var(--ink); padding:0.5rem 0.8rem; border-radius:6px; font-family:'Inter',sans-serif; font-size:0.88rem; font-weight:600;}
 
   .budget-bar{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--panel-line); border:1px solid var(--panel-line); margin-bottom:1.5rem; border-radius:6px; overflow:hidden;}
   .budget-cell{background:var(--panel); padding:0.9rem 1.1rem;}
@@ -40,11 +53,37 @@
   .budget-cell .num{font-size:1.5rem; font-weight:700; line-height:1; color:var(--blue);}
   .budget-cell.warn .num{color:var(--red);}
 
-  .layout{display:grid; grid-template-columns:1.5fr 1fr; gap:1.5rem; align-items:start;}
-  @media (max-width:900px){ .layout{grid-template-columns:1fr;} }
+  .layout{display:grid; grid-template-columns:1.6fr 1fr; gap:1.5rem; align-items:start;}
+  @media (max-width:960px){ .layout{grid-template-columns:1fr;} }
 
   .panel{background:#fff; border:1px solid var(--panel-line); border-radius:8px; padding:1.25rem; box-shadow:0 1px 2px rgba(19,32,67,0.04); margin-bottom:1.5rem;}
   .panel h2{margin:0 0 1rem; font-size:1.05rem; font-weight:600; letter-spacing:0.01em; color:var(--blue);}
+
+  .pitch{background:linear-gradient(180deg,var(--pitch-green),#155a2a); border-radius:10px; padding:1.25rem 0.75rem; position:relative; overflow:hidden; margin-bottom:1rem;}
+  .pitch::before{content:''; position:absolute; inset:10px; border:2px solid var(--pitch-line); border-radius:6px; pointer-events:none;}
+  .pitch-row{display:flex; justify-content:center; gap:0.6rem; margin:0.6rem 0; flex-wrap:wrap; position:relative; z-index:1;}
+  .pcard{background:rgba(255,255,255,0.96); border-radius:8px; padding:0.5rem 0.6rem; width:6.4rem; text-align:center; cursor:pointer; border:2px solid transparent; position:relative;}
+  .pcard:hover{border-color:var(--blue);}
+  .pcard.is-cap{border-color:var(--red);}
+  .pcard .pos-tag{font-size:0.62rem; font-weight:700; color:var(--ink-dim); text-transform:uppercase;}
+  .pcard .pname{font-size:0.76rem; font-weight:700; color:var(--ink); line-height:1.15; margin:0.15rem 0;}
+  .pcard .pprice{font-size:0.7rem; color:var(--blue); font-weight:600;}
+  .pcard .fdr-chip{display:inline-block; margin-top:0.25rem; font-size:0.62rem; font-weight:700; color:#fff; padding:0.05rem 0.3rem; border-radius:3px;}
+  .pcard .badge-row{position:absolute; top:-0.4rem; right:-0.4rem; display:flex; gap:0.15rem;}
+  .badge-c, .badge-vc{width:1.2rem; height:1.2rem; border-radius:50%; font-size:0.65rem; font-weight:700; color:#fff; display:flex; align-items:center; justify-content:center;}
+  .badge-c{background:var(--red);}
+  .badge-vc{background:var(--blue);}
+  .injury-dot{position:absolute; top:-0.3rem; left:-0.3rem; width:0.65rem; height:0.65rem; border-radius:50%; background:var(--amber);}
+
+  .action-row{display:flex; gap:0.3rem; justify-content:center; margin-top:1rem; flex-wrap:wrap;}
+  .action-row button{background:var(--panel); border:1px solid var(--panel-line); color:var(--ink); font-size:0.75rem; padding:0.3rem 0.6rem; border-radius:5px; cursor:pointer; font-weight:600;}
+  .action-row button:hover{background:var(--blue-dim); color:var(--blue);}
+  .action-row button.danger:hover{background:var(--red-dim); color:var(--red);}
+
+  .bench-strip{display:flex; gap:0.6rem; flex-wrap:wrap; padding-top:0.5rem; border-top:1px dashed var(--panel-line); margin-top:0.5rem;}
+  .bench-strip .pcard{background:#f7f8fb;}
+
+  .fixture-chip{font-size:0.68rem; color:var(--ink-dim);}
 
   .controls{display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem;}
   .controls input[type="text"]{flex:1; min-width:160px; background:var(--panel); border:1px solid var(--panel-line); color:var(--ink); padding:0.55rem 0.8rem; border-radius:5px; font-family:'Inter',sans-serif; font-size:0.9rem;}
@@ -57,30 +96,20 @@
   thead th:hover{color:var(--blue);}
   tbody td{padding:0.55rem 0.6rem; border-bottom:1px solid var(--panel-line); vertical-align:middle;}
   tbody tr:hover{background:var(--panel);}
-  .pname{font-weight:600;}
   .pteam{color:var(--ink-dim); font-size:0.78rem;}
   .ppos{display:inline-block; font-size:0.68rem; font-weight:700; padding:0.1rem 0.4rem; border-radius:3px; background:var(--blue-dim); color:var(--blue); font-family:'Inter',sans-serif;}
   .price{font-family:'Archivo Narrow',sans-serif; font-weight:600; color:var(--blue);}
   .addbtn{background:var(--blue); border:1px solid var(--blue); color:#fff; width:1.8rem; height:1.8rem; border-radius:5px; cursor:pointer; font-size:1rem; line-height:1;}
   .addbtn:hover:not(:disabled){background:var(--red); border-color:var(--red);}
   .addbtn:disabled{opacity:0.3; cursor:not-allowed;}
-  .scroll-table{max-height:560px; overflow-y:auto;}
+  .scroll-table{max-height:420px; overflow-y:auto;}
 
-  .quota-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin-bottom:1.1rem;}
+  .quota-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin-bottom:1rem;}
   .quota{background:var(--panel); border-radius:6px; padding:0.5rem; text-align:center;}
   .quota .n{font-size:1.1rem; font-weight:700; color:var(--blue);}
   .quota .n.full{color:var(--red);}
   .quota .l{font-size:0.65rem; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.04em; font-family:'Inter',sans-serif;}
-
-  .squad-row{display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--panel-line); font-size:0.86rem;}
-  .squad-row .info{display:flex; align-items:center; gap:0.5rem; min-width:0;}
-  .squad-row .info .n{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .rmbtn{background:none; border:none; color:var(--ink-dim); cursor:pointer; font-size:1rem; padding:0 0.2rem;}
-  .rmbtn:hover{color:var(--red);}
-  .empty-slot{color:var(--ink-dim); font-size:0.8rem; padding:0.5rem 0; border-bottom:1px dashed var(--panel-line); font-style:italic;}
   .club-warn{color:var(--red); font-size:0.75rem; margin-top:0.6rem; font-family:'Inter',sans-serif;}
-  .cap{display:inline-block; font-size:0.65rem; font-weight:700; color:#fff; background:var(--red); border-radius:3px; padding:0 0.3rem; margin-left:0.3rem;}
-  .vcap{display:inline-block; font-size:0.65rem; font-weight:700; color:var(--blue); background:var(--blue-dim); border-radius:3px; padding:0 0.3rem; margin-left:0.3rem;}
 
   .center-msg{text-align:center; padding:3rem 1rem; color:var(--ink-dim);}
   .spinner{width:28px; height:28px; border:3px solid var(--panel-line); border-top-color:var(--red); border-radius:50%; margin:0 auto 1rem; animation:spin 0.8s linear infinite;}
@@ -103,6 +132,7 @@
   .team-name-line{font-size:1.3rem; font-weight:700; color:var(--ink); margin-bottom:0.2rem;}
   .manager-name{color:var(--ink-dim); font-size:0.9rem; margin-bottom:1rem;}
   .squad-section-title{font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-dim); margin:1.2rem 0 0.5rem; font-family:'Inter',sans-serif;}
+  .squad-row{display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--panel-line); font-size:0.86rem;}
   .toolbar-row{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-bottom:0.5rem;}
 
   .fdr{display:inline-flex; align-items:center; justify-content:center; width:1.6rem; height:1.6rem; border-radius:4px; font-size:0.78rem; font-weight:700; color:#fff;}
@@ -121,38 +151,42 @@
   .status-s{background:var(--red-dim); color:var(--red);}
   .status-u{background:var(--panel); color:var(--ink-dim);}
   .news-text{color:var(--ink-dim); font-size:0.85rem; margin-top:0.3rem;}
-
   .history-table td, .history-table th{text-align:right;}
   .history-table td:first-child, .history-table th:first-child{text-align:left;}
+
+  .toast{position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:var(--navy); color:#fff; padding:0.6rem 1.1rem; border-radius:8px; font-size:0.85rem; font-weight:600; opacity:0; pointer-events:none; transition:opacity 0.25s ease; z-index:50;}
+  .toast.show{opacity:1;}
 
   footer{text-align:center; color:var(--ink-dim); font-size:0.78rem; margin-top:3rem; font-family:'Inter',sans-serif;}
 </style>
 </head>
 <body>
 
-<div class="wrap">
-  <header class="top">
-    <div>
-      <div class="brand">Squad<span>Planner</span></div>
-      <div class="subtitle">Plan a squad, check your team, fixtures, and news</div>
+<header class="top">
+  <div class="inner">
+    <div class="brand-row">
+      <div class="brand-badge">⚽</div>
+      <div><div class="brand">Squad Planner</div><div class="sub">Plan. Analyse. Play smarter.</div></div>
     </div>
-    <div class="status" id="status">Loading player data…</div>
-  </header>
-
-  <div class="view-tabs">
-    <button class="view-tab active" data-view="planner">Squad Planner</button>
-    <button class="view-tab" data-view="myteam">My Team</button>
-    <button class="view-tab" data-view="fixtures">Fixtures</button>
-    <button class="view-tab" data-view="news">News</button>
+    <div class="nav" id="navTabs">
+      <button data-view="planner" class="active">Squad Planner</button>
+      <button data-view="myteam">My Team</button>
+      <button data-view="fixtures">Fixtures</button>
+      <button data-view="news">News</button>
+    </div>
+    <div class="status" id="status">Loading…</div>
   </div>
+</header>
 
+<div class="wrap">
   <div id="app"></div>
-
   <footer>
-    Player prices and fixtures refresh twice daily via a scheduled job. Team lookups are fetched live through a server-side proxy.
-    Not affiliated with the Premier League.
+    Player prices, fixtures, and gameweek data refresh twice daily via a scheduled job. Team lookups are fetched live through a server-side proxy.
+    Not affiliated with the Premier League. Projected points and captaincy recommendations are intentionally not shown — the public data source doesn't support them reliably enough to present as fact.
   </footer>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 (function(){
@@ -163,15 +197,22 @@
   var POS_NAME = { 1:'GKP', 2:'DEF', 3:'MID', 4:'FWD' };
   var MAX_PER_CLUB = 3;
   var STORAGE_KEY = 'fpl-squad-planner:v1';
+  var META_KEY = 'fpl-squad-planner:meta:v1';
   var PLAYERS_URL = 'data/players.json';
   var FIXTURES_URL = 'data/fixtures.json';
   var CHIP_LABEL = { wildcard:'Wildcard', '3xc':'Triple Captain', bboost:'Bench Boost', freehit:'Free Hit' };
   var STATUS_LABEL = { i:'Injured', d:'Doubtful', s:'Suspended', u:'Unavailable', a:'Available' };
+  var FORMATIONS = {
+    '3-4-3': { def:3, mid:4, fwd:3 }, '3-5-2': { def:3, mid:5, fwd:2 },
+    '4-3-3': { def:4, mid:3, fwd:3 }, '4-4-2': { def:4, mid:4, fwd:2 },
+    '4-5-1': { def:4, mid:5, fwd:1 }, '5-3-2': { def:5, mid:3, fwd:2 },
+    '5-4-1': { def:5, mid:4, fwd:1 }
+  };
 
   var state = {
-    players: [], teams: [], generatedAt: null,
-    fixtures: [],
-    squad: [],
+    players: [], teams: [], events: [], fixtures: [], generatedAt: null,
+    squad: [], formation: '4-4-2', captainId: null, viceCaptainId: null, manualBench: [],
+    selectedGwId: null, selectedCardId: null,
     search: '', posFilter: 0, sortKey: 'total_points', sortDir: -1,
     view: 'planner',
     myTeam: { loading:false, error:'', data:null, lastId:'' }
@@ -179,6 +220,15 @@
 
   var statusEl = document.getElementById('status');
   var appEl = document.getElementById('app');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
 
   function loadData(){
     renderLoading();
@@ -190,18 +240,24 @@
       if (!playersData) throw new Error('players fetch failed');
       state.players = playersData.players || [];
       state.teams = playersData.teams || [];
+      state.events = playersData.events || [];
       state.generatedAt = playersData.generated_at || null;
       state.fixtures = (fixturesData && fixturesData.fixtures) || [];
-      statusEl.innerHTML = state.players.length + ' players · updated ' + relativeTime(state.generatedAt);
+
+      var current = state.events.filter(function(e){ return e.is_current; })[0];
+      var next = state.events.filter(function(e){ return e.is_next; })[0];
+      state.selectedGwId = (current || next || state.events[0] || {}).id || null;
+
+      statusEl.textContent = state.players.length + ' players · updated ' + relativeTime(state.generatedAt);
       loadSquadFromStorage();
       render();
+      setInterval(function(){ if (state.view === 'planner') tickCountdown(); }, 1000);
     }).catch(renderFetchError);
   }
 
   function relativeTime(iso){
     if (!iso) return 'unknown';
-    var then = new Date(iso).getTime();
-    var mins = Math.round((Date.now() - then) / 60000);
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     if (mins < 60) return mins + 'm ago';
     var hours = Math.round(mins / 60);
     if (hours < 48) return hours + 'h ago';
@@ -215,8 +271,17 @@
       '<p style="font-size:0.85rem;max-width:32rem;margin:0.5rem auto 0;">Go to the Actions tab on GitHub and run "Refresh FPL data" manually.</p></div></div>';
   }
 
-  function loadSquadFromStorage(){ try { var raw = localStorage.getItem(STORAGE_KEY); if (raw) state.squad = JSON.parse(raw); } catch(e){ state.squad = []; } }
+  function loadSquadFromStorage(){
+    try { var raw = localStorage.getItem(STORAGE_KEY); if (raw) state.squad = JSON.parse(raw); } catch(e){ state.squad = []; }
+    try {
+      var meta = JSON.parse(localStorage.getItem(META_KEY) || '{}');
+      state.formation = meta.formation || '4-4-2';
+      state.captainId = meta.captainId || null;
+      state.viceCaptainId = meta.viceCaptainId || null;
+    } catch(e){}
+  }
   function saveSquad(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.squad)); } catch(e){} }
+  function saveMeta(){ try { localStorage.setItem(META_KEY, JSON.stringify({ formation: state.formation, captainId: state.captainId, viceCaptainId: state.viceCaptainId })); } catch(e){} }
 
   function teamById(id){ return state.teams.filter(function(t){ return t.id === id; })[0]; }
   function teamName(id){ var t = teamById(id); return t ? t.short_name : '—'; }
@@ -233,8 +298,83 @@
     if (spend() + p.now_cost > BUDGET) return false;
     return true;
   }
-  function addPlayer(id){ var p = playerById(id); if (!p || !canAdd(p)) return; state.squad.push(id); saveSquad(); render(); }
-  function removePlayer(id){ state.squad = state.squad.filter(function(x){ return x !== id; }); saveSquad(); render(); }
+  function addPlayer(id){
+    var p = playerById(id); if (!p || !canAdd(p)) return;
+    state.squad.push(id); saveSquad();
+    toast('Added ' + p.second_name + ' to squad.');
+    render();
+  }
+  function removePlayer(id){
+    var p = playerById(id);
+    state.squad = state.squad.filter(function(x){ return x !== id; });
+    if (state.captainId === id) state.captainId = null;
+    if (state.viceCaptainId === id) state.viceCaptainId = null;
+    saveSquad(); saveMeta();
+    if (p) toast('Removed ' + p.second_name + '.');
+    render();
+  }
+
+  function computeLineup(){
+    var sp = squadPlayers();
+    var byPos = { 1:[], 2:[], 3:[], 4:[] };
+    sp.forEach(function(p){ byPos[p.element_type].push(p); });
+    Object.keys(byPos).forEach(function(k){ byPos[k].sort(function(a,b){ return b.total_points - a.total_points; }); });
+
+    var f = FORMATIONS[state.formation] || FORMATIONS['4-4-2'];
+    var startGk = byPos[1].slice(0, 1);
+    var startDef = byPos[2].slice(0, f.def);
+    var startMid = byPos[3].slice(0, f.mid);
+    var startFwd = byPos[4].slice(0, f.fwd);
+    var startingIds = [].concat(startGk, startDef, startMid, startFwd).map(function(p){ return p.id; });
+    var bench = sp.filter(function(p){ return startingIds.indexOf(p.id) === -1; });
+
+    return { gk:startGk, def:startDef, mid:startMid, fwd:startFwd, bench:bench };
+  }
+
+  function setFormation(f){ state.formation = f; saveMeta(); toast('Formation changed to ' + f + '.'); render(); }
+  function setCaptain(id){
+    var p = playerById(id);
+    state.captainId = id;
+    if (state.viceCaptainId === id) state.viceCaptainId = null;
+    saveMeta();
+    toast((p?p.second_name:'Player') + ' is now captain.');
+    render();
+  }
+  function setVice(id){
+    var p = playerById(id);
+    state.viceCaptainId = id;
+    if (state.captainId === id) state.captainId = null;
+    saveMeta();
+    toast((p?p.second_name:'Player') + ' is now vice-captain.');
+    render();
+  }
+  function benchPlayer(id){
+    var lineup = computeLineup();
+    var p = playerById(id);
+    if (!p) return;
+    var benchSamePos = lineup.bench.filter(function(b){ return b.element_type === p.element_type; });
+    if (!benchSamePos.length){ toast('No bench player in that position to swap with.'); return; }
+    if (state.manualBench.indexOf(id) === -1) state.manualBench.push(id);
+    toast('Benched ' + p.second_name + '.');
+    render();
+  }
+  function startPlayer(id){
+    state.manualBench = state.manualBench.filter(function(x){ return x !== id; });
+    var p = playerById(id);
+    toast('Moved ' + (p?p.second_name:'player') + ' into starting XI.');
+    render();
+  }
+
+  function tickCountdown(){
+    var el = document.getElementById('gwCountdown');
+    if (!el) return;
+    var ev = state.events.filter(function(e){ return e.id === state.selectedGwId; })[0];
+    if (!ev || !ev.deadline_time){ el.textContent = ''; return; }
+    var diff = new Date(ev.deadline_time).getTime() - Date.now();
+    if (diff <= 0){ el.textContent = 'Deadline passed'; return; }
+    var d = Math.floor(diff/86400000), h = Math.floor(diff%86400000/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000);
+    el.textContent = (d>0?d+'d ':'') + h + 'h ' + m + 'm ' + s + 's';
+  }
 
   function fetchMyTeam(id){
     state.myTeam.loading = true; state.myTeam.error = ''; state.myTeam.lastId = id;
@@ -254,36 +394,56 @@
     var mt = state.myTeam.data;
     if (!mt || !mt.picks || !mt.picks.picks) return;
     var ids = mt.picks.picks.map(function(p){ return p.element; }).filter(function(id){ return !!playerById(id); });
-    state.squad = ids;
-    saveSquad();
+    state.squad = ids; state.manualBench = []; saveSquad();
+    var capPick = mt.picks.picks.filter(function(p){ return p.is_captain; })[0];
+    var vicePick = mt.picks.picks.filter(function(p){ return p.is_vice_captain; })[0];
+    state.captainId = capPick ? capPick.element : null;
+    state.viceCaptainId = vicePick ? vicePick.element : null;
+    saveMeta();
     state.view = 'planner';
+    toast('Loaded your live team into the planner.');
     render();
   }
 
   function render(){
-    document.querySelectorAll('.view-tab').forEach(function(btn){ btn.classList.toggle('active', btn.getAttribute('data-view') === state.view); });
+    document.querySelectorAll('#navTabs button').forEach(function(btn){ btn.classList.toggle('active', btn.getAttribute('data-view') === state.view); });
     if (state.view === 'myteam') renderMyTeamView();
     else if (state.view === 'fixtures') renderFixturesView();
     else if (state.view === 'news') renderNewsView();
     else renderPlannerView();
-    bindViewTabs();
+    bindNav();
   }
-  function bindViewTabs(){
+  function bindNav(){
     document.querySelectorAll('[data-view]').forEach(function(btn){ btn.addEventListener('click', function(){ state.view = btn.getAttribute('data-view'); render(); }); });
   }
 
   function renderPlannerView(){
-    var filtered = state.players.filter(function(p){
-      var matchesPos = state.posFilter === 0 || p.element_type === state.posFilter;
-      var name = (p.first_name + ' ' + p.second_name).toLowerCase();
-      var matchesSearch = state.search === '' || name.indexOf(state.search.toLowerCase()) !== -1;
-      return matchesPos && matchesSearch;
-    });
-    filtered.sort(function(a,b){ var av = parseFloat(a[state.sortKey])||0, bv = parseFloat(b[state.sortKey])||0; return (av-bv)*state.sortDir; });
     var sp = squadPlayers();
     var remaining = BUDGET - spend();
-    appEl.innerHTML = budgetBarHtml(sp.length, remaining) + '<div class="layout">' + playerPanelHtml(filtered) + squadPanelHtml(sp) + '</div>';
+    appEl.innerHTML =
+      gwBarHtml() +
+      budgetBarHtml(sp.length, remaining) +
+      '<div class="layout">' + pitchPanelHtml() + findPlayersPanelHtml() + '</div>';
     bindPlannerEvents();
+    tickCountdown();
+  }
+
+  function gwBarHtml(){
+    var ev = state.events.filter(function(e){ return e.id === state.selectedGwId; })[0];
+    var idx = state.events.findIndex(function(e){ return e.id === state.selectedGwId; });
+    var canPrev = idx > 0, canNext = idx >= 0 && idx < state.events.length - 1;
+    var deadline = ev && ev.deadline_time ? new Date(ev.deadline_time).toLocaleString(undefined, { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+    return '<div class="gw-bar">' +
+      '<div class="gw-nav">' +
+        '<button class="gw-navbtn" id="gwPrev" ' + (canPrev?'':'disabled') + '>‹</button>' +
+        '<div class="gw-label">GW ' + (ev ? ev.id : '—') + '</div>' +
+        '<button class="gw-navbtn" id="gwNext" ' + (canNext?'':'disabled') + '>›</button>' +
+      '</div>' +
+      '<div class="gw-deadline">Deadline ' + deadline + ' · <span class="gw-countdown" id="gwCountdown"></span></div>' +
+      '<select class="formation-select" id="formationSelect">' +
+        Object.keys(FORMATIONS).map(function(f){ return '<option value="' + f + '" ' + (f===state.formation?'selected':'') + '>' + f + '</option>'; }).join('') +
+      '</select>' +
+    '</div>';
   }
 
   function budgetBarHtml(count, remaining){
@@ -296,33 +456,106 @@
     '</div>';
   }
 
-  function playerPanelHtml(list){
+  function fixtureChipFor(p){
+    var fx = state.fixtures.filter(function(f){ return f.event === state.selectedGwId && (f.team_h === p.team || f.team_a === p.team); })[0];
+    if (!fx) return '<span class="fixture-chip">No fixture</span>';
+    var isHome = fx.team_h === p.team;
+    var oppId = isHome ? fx.team_a : fx.team_h;
+    var diff = isHome ? fx.team_h_difficulty : fx.team_a_difficulty;
+    return '<span class="fdr-chip fdr-' + diff + '">' + teamName(oppId) + (isHome?' (H)':' (A)') + '</span>';
+  }
+
+  function pcardHtml(p, isStarting){
+    if (!p) return '<div class="pcard" style="opacity:0.4;">Empty</div>';
+    var isCap = state.captainId === p.id, isVice = state.viceCaptainId === p.id;
+    var badges = '';
+    if (isCap) badges += '<span class="badge-c">C</span>';
+    if (isVice) badges += '<span class="badge-vc">V</span>';
+    var injury = (p.status && p.status !== 'a') ? '<span class="injury-dot" title="' + (STATUS_LABEL[p.status]||p.status) + '"></span>' : '';
+    return '<div class="pcard' + (isCap?' is-cap':'') + '" data-card="' + p.id + '">' +
+      injury + (badges ? '<div class="badge-row">' + badges + '</div>' : '') +
+      '<div class="pos-tag">' + POS_NAME[p.element_type] + '</div>' +
+      '<div class="pname">' + p.first_name.charAt(0) + '. ' + p.second_name + '</div>' +
+      '<div class="pprice">£' + (p.now_cost/10).toFixed(1) + 'm</div>' +
+      fixtureChipFor(p) +
+      (state.selectedCardId === p.id ? actionRowHtml(p, isStarting) : '') +
+    '</div>';
+  }
+
+  function actionRowHtml(p, isStarting){
+    var btns = [];
+    if (isStarting){
+      btns.push('<button data-cap="' + p.id + '">Captain</button>');
+      btns.push('<button data-vice="' + p.id + '">Vice</button>');
+      btns.push('<button data-bench="' + p.id + '">Bench</button>');
+    } else {
+      btns.push('<button data-start="' + p.id + '">Start</button>');
+    }
+    btns.push('<button class="danger" data-remove="' + p.id + '">Remove</button>');
+    return '<div class="action-row">' + btns.join('') + '</div>';
+  }
+
+  function pitchPanelHtml(){
+    var sp = squadPlayers();
+    if (!sp.length){
+      return '<div class="panel"><h2>Pitch</h2><div class="center-msg">Add players from "Find players" to build your squad and see it on the pitch.</div></div>';
+    }
+    var lineup = computeLineup();
+    if (state.manualBench.length){
+      state.manualBench.forEach(function(benchedId){
+        ['gk','def','mid','fwd'].forEach(function(key){
+          var idx = lineup[key].findIndex(function(p){ return p.id === benchedId; });
+          if (idx === -1) return;
+          var benchedPlayer = lineup[key][idx];
+          var swapIn = lineup.bench.filter(function(b){ return b.element_type === benchedPlayer.element_type; })[0];
+          if (swapIn){
+            lineup[key][idx] = swapIn;
+            lineup.bench = lineup.bench.filter(function(b){ return b.id !== swapIn.id; }).concat([benchedPlayer]);
+          }
+        });
+      });
+    }
+
+    var gkRow = '<div class="pitch-row">' + lineup.gk.map(function(p){ return pcardHtml(p, true); }).join('') + '</div>';
+    var defRow = '<div class="pitch-row">' + lineup.def.map(function(p){ return pcardHtml(p, true); }).join('') + '</div>';
+    var midRow = '<div class="pitch-row">' + lineup.mid.map(function(p){ return pcardHtml(p, true); }).join('') + '</div>';
+    var fwdRow = '<div class="pitch-row">' + lineup.fwd.map(function(p){ return pcardHtml(p, true); }).join('') + '</div>';
+    var bench = '<div class="bench-strip">' + lineup.bench.map(function(p){ return pcardHtml(p, false); }).join('') + '</div>';
+
+    return '<div class="panel"><h2>Pitch — ' + state.formation + '</h2>' +
+      '<div class="pitch">' + fwdRow + midRow + defRow + gkRow + '</div>' +
+      '<div class="squad-section-title">Bench</div>' + bench +
+    '</div>';
+  }
+
+  function findPlayersPanelHtml(){
+    var filtered = state.players.filter(function(p){
+      var matchesPos = state.posFilter === 0 || p.element_type === state.posFilter;
+      var name = (p.first_name + ' ' + p.second_name).toLowerCase();
+      var matchesSearch = state.search === '' || name.indexOf(state.search.toLowerCase()) !== -1;
+      return matchesPos && matchesSearch;
+    });
+    filtered.sort(function(a,b){ var av = parseFloat(a[state.sortKey])||0, bv = parseFloat(b[state.sortKey])||0; return (av-bv)*state.sortDir; });
+
     var tabs = [0,1,2,3,4].map(function(t){ var label = t===0?'All':POS_NAME[t]; return '<button class="tab' + (state.posFilter===t?' active':'') + '" data-pos="' + t + '">' + label + '</button>'; }).join('');
-    var rows = list.slice(0,200).map(function(p){
+    var rows = filtered.slice(0,200).map(function(p){
       var addable = canAdd(p), already = state.squad.indexOf(p.id) !== -1;
       return '<tr><td><div class="pname">' + p.first_name.charAt(0) + '. ' + p.second_name + '</div><div class="pteam">' + teamName(p.team) + '</div></td>' +
         '<td><span class="ppos">' + POS_NAME[p.element_type] + '</span></td>' +
         '<td class="price">£' + (p.now_cost/10).toFixed(1) + 'm</td><td>' + p.total_points + '</td><td>' + p.form + '</td>' +
         '<td><button class="addbtn" data-add="' + p.id + '" ' + ((!addable||already)?'disabled':'') + '>' + (already?'✓':'+') + '</button></td></tr>';
     }).join('');
-    return '<div class="panel"><h2>Players</h2>' +
-      '<div class="controls"><input type="text" id="search" placeholder="Search player…" value="' + state.search + '"></div>' +
+
+    var quotas = [1,2,3,4].map(function(t){ var n = countByPos(t); return '<div class="quota"><div class="n' + (n===QUOTA[t]?' full':'') + '">' + n + '/' + QUOTA[t] + '</div><div class="l">' + POS_NAME[t] + '</div></div>'; }).join('');
+    var clubCounts = {}; squadPlayers().forEach(function(p){ clubCounts[p.team] = (clubCounts[p.team]||0)+1; });
+    var atCap = Object.keys(clubCounts).filter(function(t){ return clubCounts[t] >= MAX_PER_CLUB; }).map(function(t){ return teamName(parseInt(t,10)); });
+
+    return '<div class="panel"><h2>Find players</h2><div class="quota-grid">' + quotas + '</div>' +
+      (atCap.length ? '<div class="club-warn">At the 3-player club limit: ' + atCap.join(', ') + '</div>' : '') +
+      '<div class="controls" style="margin-top:1rem;"><input type="text" id="search" placeholder="Search player…" value="' + state.search + '"></div>' +
       '<div class="tabs">' + tabs + '</div>' +
       '<div class="scroll-table"><table><thead><tr><th data-sort="second_name">Player</th><th data-sort="element_type">Pos</th><th data-sort="now_cost">Price</th><th data-sort="total_points">Pts</th><th data-sort="form">Form</th><th></th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6" style="color:var(--ink-dim);padding:1rem;">No players match.</td></tr>') + '</tbody></table></div></div>';
-  }
-
-  function squadPanelHtml(sp){
-    var quotas = [1,2,3,4].map(function(t){ var n = countByPos(t); return '<div class="quota"><div class="n' + (n===QUOTA[t]?' full':'') + '">' + n + '/' + QUOTA[t] + '</div><div class="l">' + POS_NAME[t] + '</div></div>'; }).join('');
-    var rows = sp.map(function(p){
-      return '<div class="squad-row"><div class="info"><span class="ppos">' + POS_NAME[p.element_type] + '</span><span class="n">' + p.first_name.charAt(0) + '. ' + p.second_name + '</span></div>' +
-        '<div style="display:flex;align-items:center;gap:0.6rem;"><span class="price">£' + (p.now_cost/10).toFixed(1) + 'm</span><button class="rmbtn" data-remove="' + p.id + '" title="Remove">✕</button></div></div>';
-    }).join('');
-    var emptySlots = ''; for (var i = sp.length; i < 15; i++){ emptySlots += '<div class="empty-slot">Empty slot</div>'; }
-    var clubCounts = {}; sp.forEach(function(p){ clubCounts[p.team] = (clubCounts[p.team]||0)+1; });
-    var atCap = Object.keys(clubCounts).filter(function(t){ return clubCounts[t] >= MAX_PER_CLUB; }).map(function(t){ return teamName(parseInt(t,10)); });
-    return '<div class="panel"><h2>Your squad</h2><div class="quota-grid">' + quotas + '</div>' + rows + emptySlots +
-      (atCap.length ? '<div class="club-warn">At the 3-player club limit: ' + atCap.join(', ') + '</div>' : '') + '</div>';
   }
 
   function bindPlannerEvents(){
@@ -331,7 +564,27 @@
     document.querySelectorAll('[data-pos]').forEach(function(btn){ btn.addEventListener('click', function(){ state.posFilter = parseInt(btn.getAttribute('data-pos'),10); render(); }); });
     document.querySelectorAll('[data-sort]').forEach(function(th){ th.addEventListener('click', function(){ var key = th.getAttribute('data-sort'); if (state.sortKey===key) state.sortDir*=-1; else { state.sortKey=key; state.sortDir=-1; } render(); }); });
     document.querySelectorAll('[data-add]').forEach(function(btn){ btn.addEventListener('click', function(){ addPlayer(parseInt(btn.getAttribute('data-add'),10)); }); });
-    document.querySelectorAll('[data-remove]').forEach(function(btn){ btn.addEventListener('click', function(){ removePlayer(parseInt(btn.getAttribute('data-remove'),10)); }); });
+    document.querySelectorAll('[data-remove]').forEach(function(btn){ btn.addEventListener('click', function(e){ e.stopPropagation(); removePlayer(parseInt(btn.getAttribute('data-remove'),10)); }); });
+    document.querySelectorAll('[data-cap]').forEach(function(btn){ btn.addEventListener('click', function(e){ e.stopPropagation(); setCaptain(parseInt(btn.getAttribute('data-cap'),10)); }); });
+    document.querySelectorAll('[data-vice]').forEach(function(btn){ btn.addEventListener('click', function(e){ e.stopPropagation(); setVice(parseInt(btn.getAttribute('data-vice'),10)); }); });
+    document.querySelectorAll('[data-bench]').forEach(function(btn){ btn.addEventListener('click', function(e){ e.stopPropagation(); benchPlayer(parseInt(btn.getAttribute('data-bench'),10)); }); });
+    document.querySelectorAll('[data-start]').forEach(function(btn){ btn.addEventListener('click', function(e){ e.stopPropagation(); startPlayer(parseInt(btn.getAttribute('data-start'),10)); }); });
+    document.querySelectorAll('[data-card]').forEach(function(card){ card.addEventListener('click', function(){
+      var id = parseInt(card.getAttribute('data-card'),10);
+      state.selectedCardId = state.selectedCardId === id ? null : id;
+      render();
+    }); });
+    var formationSel = document.getElementById('formationSelect');
+    if (formationSel) formationSel.addEventListener('change', function(e){ setFormation(e.target.value); });
+    var gwPrev = document.getElementById('gwPrev'), gwNext = document.getElementById('gwNext');
+    if (gwPrev) gwPrev.addEventListener('click', function(){ shiftGw(-1); });
+    if (gwNext) gwNext.addEventListener('click', function(){ shiftGw(1); });
+  }
+
+  function shiftGw(delta){
+    var idx = state.events.findIndex(function(e){ return e.id === state.selectedGwId; });
+    var next = state.events[idx + delta];
+    if (next){ state.selectedGwId = next.id; render(); }
   }
 
   function renderMyTeamView(){
@@ -340,7 +593,6 @@
       '<div class="my-team-lookup"><input type="text" id="teamIdInput" placeholder="Your FPL team ID" value="' + mt.lastId + '">' +
       '<button class="btn-primary" id="loadTeamBtn" ' + (mt.loading?'disabled':'') + '>' + (mt.loading?'Loading…':'Load team') + '</button></div>' +
       (mt.error ? '<div class="error-msg">' + mt.error + '</div>' : '') + '</div>';
-
     if (mt.data && mt.data.entry) html += teamResultHtml(mt.data);
     appEl.innerHTML = html;
 
@@ -387,8 +639,8 @@
       var bench = picks.picks.filter(function(p){ return p.position > 11; });
       function rowFor(pick){
         var p = playerById(pick.element); if (!p) return '';
-        var tag = pick.is_captain ? '<span class="cap">C</span>' : (pick.is_vice_captain ? '<span class="vcap">VC</span>' : '');
-        return '<div class="squad-row"><div class="info"><span class="ppos">' + POS_NAME[p.element_type] + '</span><span class="n">' + p.first_name.charAt(0) + '. ' + p.second_name + tag + '</span></div><span class="pteam">' + teamName(p.team) + '</span></div>';
+        var tag = pick.is_captain ? '<span class="badge-c" style="position:static;display:inline-flex;">C</span>' : (pick.is_vice_captain ? '<span class="badge-vc" style="position:static;display:inline-flex;">V</span>' : '');
+        return '<div class="squad-row"><div style="display:flex;align-items:center;gap:0.5rem;"><span class="ppos">' + POS_NAME[p.element_type] + '</span><span>' + p.first_name.charAt(0) + '. ' + p.second_name + '</span>' + tag + '</div><span class="pteam">' + teamName(p.team) + '</span></div>';
       }
       squadHtml = '<div class="panel"><h2>Squad</h2><div class="squad-section-title">Starting XI</div>' + starting.map(rowFor).join('') +
         '<div class="squad-section-title">Bench</div>' + bench.map(rowFor).join('') + '</div>';
@@ -411,16 +663,14 @@
   function renderFixturesView(){
     if (!state.fixtures.length){
       appEl.innerHTML = '<div class="panel"><div class="center-msg"><p>No fixture data yet.</p>' +
-        '<p style="font-size:0.85rem;max-width:32rem;margin:0.5rem auto 0;">Run "Refresh FPL data" on the Actions tab \u2014 it now pulls fixtures alongside prices.</p></div></div>';
+        '<p style="font-size:0.85rem;max-width:32rem;margin:0.5rem auto 0;">Run "Refresh FPL data" on the Actions tab.</p></div></div>';
       return;
     }
     var byGw = {};
     state.fixtures.forEach(function(f){ (byGw[f.event] = byGw[f.event] || []).push(f); });
     var gws = Object.keys(byGw).map(Number).sort(function(a,b){ return a-b; }).slice(0, 5);
-
     var html = '<div class="panel"><h2>Upcoming fixtures</h2>' +
-      '<p style="font-size:0.82rem;color:var(--ink-dim);margin-top:-0.5rem;">Difficulty is FPL\'s own attack/defence strength rating (1 = easiest, 5 = hardest) \u2014 not a lookup of last season\'s result against the same opponent, which the public API doesn\'t expose reliably.</p>';
-
+      '<p style="font-size:0.82rem;color:var(--ink-dim);margin-top:-0.5rem;">Difficulty is FPL\'s own attack/defence strength rating (1 easiest, 5 hardest) — not a lookup of last season\'s result against the same opponent, which the public API doesn\'t expose reliably.</p>';
     gws.forEach(function(gw){
       html += '<div class="gw-heading">Gameweek ' + gw + '</div>';
       byGw[gw].forEach(function(f){
@@ -437,25 +687,22 @@
   function renderNewsView(){
     var flagged = state.players.filter(function(p){ return p.news && p.news.trim() !== ''; });
     flagged.sort(function(a,b){
-      var av = (a.chance_of_playing_next_round === null || a.chance_of_playing_next_round === undefined) ? 100 : a.chance_of_playing_next_round;
-      var bv = (b.chance_of_playing_next_round === null || b.chance_of_playing_next_round === undefined) ? 100 : b.chance_of_playing_next_round;
+      var av = (a.chance_of_playing_next_round == null) ? 100 : a.chance_of_playing_next_round;
+      var bv = (b.chance_of_playing_next_round == null) ? 100 : b.chance_of_playing_next_round;
       return av - bv;
     });
-
     if (!flagged.length){
-      appEl.innerHTML = '<div class="panel"><div class="center-msg">No availability news right now \u2014 either everyone is fit, or the data hasn\'t refreshed yet.</div></div>';
+      appEl.innerHTML = '<div class="panel"><div class="center-msg">No availability news right now.</div></div>';
       return;
     }
-
     var rows = flagged.map(function(p){
       var statusClass = 'status-' + (p.status || 'u');
-      var chance = (p.chance_of_playing_next_round === null || p.chance_of_playing_next_round === undefined) ? '' : p.chance_of_playing_next_round + '% next GW';
+      var chance = (p.chance_of_playing_next_round == null) ? '' : p.chance_of_playing_next_round + '% next GW';
       return '<div class="news-row"><div class="top-line">' +
-        '<span class="pname">' + p.first_name.charAt(0) + '. ' + p.second_name + ' <span class="pteam">' + teamName(p.team) + '</span></span>' +
+        '<span>' + p.first_name.charAt(0) + '. ' + p.second_name + ' <span class="pteam">' + teamName(p.team) + '</span></span>' +
         '<span class="status-badge ' + statusClass + '">' + (STATUS_LABEL[p.status] || p.status || '') + (chance ? ' · ' + chance : '') + '</span>' +
       '</div><div class="news-text">' + escapeHtml(p.news) + '</div></div>';
     }).join('');
-
     appEl.innerHTML = '<div class="panel"><h2>Player availability</h2>' + rows + '</div>';
   }
 
