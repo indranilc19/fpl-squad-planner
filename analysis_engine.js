@@ -14,11 +14,19 @@ const FPL_ANALYSIS = (() => {
     }[c]));
   }
 
+  function fixtureClass(diff) {
+    return diff <= 2 ? 'easy' : diff === 3 ? 'medium' : 'hard';
+  }
+
+  function renderFixture(f) {
+    const title = `${f.opponent} ${f.home ? 'Home' : 'Away'} · FDR ${f.difficulty} · historical ${Number(f.historical_ppg ?? 0).toFixed(1)} pts/match · ${f.historical_matches || 0} meeting${f.historical_matches === 1 ? '' : 's'}`;
+    return `<span class="analysis-fixture ${fixtureClass(Number(f.difficulty))}" title="${escapeHtml(title)}"><b>GW${f.gw}</b> ${escapeHtml(f.opponent)} <strong>${f.home ? 'H' : 'A'}</strong><small>${Number(f.historical_ppg ?? 0).toFixed(1)}</small></span>`;
+  }
+
   function render(container, dataset, onSelect) {
     if (!container) return;
     const players = dataset.players || [];
     const quota = dataset.top30_quota || { GK: 4, DEF: 10, MID: 10, FWD: 6 };
-
     const byPos = POSITIONS.reduce((acc, pos) => {
       acc[pos] = players.filter(p => p.position === pos);
       return acc;
@@ -28,8 +36,8 @@ const FPL_ANALYSIS = (() => {
       <div class="analysis-card">
         <div class="analysis-head">
           <div>
-            <h2>Top 30 — Historical + Current Analysis</h2>
-            <p>Position-balanced shortlist using the legal FPL squad ratio <strong>2:5:5:3</strong>.</p>
+            <h2>Top 30 — Fixture-aware Historical Analysis</h2>
+            <p>Position-balanced shortlist, with the <strong>next five fixtures</strong> and each player's historical performance against those opponents.</p>
           </div>
           <div class="analysis-meta">${escapeHtml(dataset.historical_seasons?.join(' · ') || '')}</div>
         </div>
@@ -37,7 +45,12 @@ const FPL_ANALYSIS = (() => {
           ${POSITIONS.map(pos => `<span><b>${pos}</b> ${quota[pos] || 0}</span>`).join('')}
         </div>
         <div class="analysis-note">
-          Scores are transparent decision-support scores, not official FPL projections. The engine uses historical performance, current form, value, next-five fixture difficulty, minutes profile and availability.
+          <strong>How fixture context works:</strong> each player's score now includes the current FPL difficulty of the next five matches <em>and</em> their historical GW points against those exact opponents. Home/away is explicitly separated, with small venue samples shrunk toward the broader opponent record.
+        </div>
+        <div class="analysis-legend">
+          <span><b>H/A</b> = home/away</span>
+          <span><b>FDR</b> = current fixture difficulty (1 easiest → 5 hardest)</span>
+          <span><b>number</b> inside fixture = historical FPL pts/match vs that opponent/venue</span>
         </div>
         ${POSITIONS.map(pos => `
           <section class="analysis-role">
@@ -45,7 +58,7 @@ const FPL_ANALYSIS = (() => {
             <div class="analysis-table-wrap">
               <table class="analysis-table">
                 <thead><tr>
-                  <th>Rank</th><th>Player</th><th>Team</th><th>£m</th><th>Score</th><th>Form</th><th>Hist pts</th><th>Next 5 FDR</th><th>Confidence</th><th>Reasoning snapshot</th>
+                  <th>Rank</th><th>Player</th><th>Team</th><th>£m</th><th>Score</th><th>Form</th><th>Next 5 fixtures</th><th>Hist matchup</th><th>FDR</th><th>Confidence</th><th>Reasoning snapshot</th>
                 </tr></thead>
                 <tbody>
                   ${byPos[pos].map(p => `
@@ -56,7 +69,8 @@ const FPL_ANALYSIS = (() => {
                       <td>${Number(p.price ?? 0).toFixed(1)}</td>
                       <td><strong>${Number(p.score ?? 0).toFixed(1)}</strong></td>
                       <td>${Number(p.form ?? 0).toFixed(1)}</td>
-                      <td>${Number(p.historical_points ?? 0).toFixed(0)}</td>
+                      <td><div class="analysis-fixtures">${(p.next_fixtures || []).map(renderFixture).join('') || '<span class="notice">No upcoming fixtures</span>'}</div></td>
+                      <td><strong>${Number(p.matchup_ppg ?? 0).toFixed(1)}</strong><div class="analysis-mini">pts/match</div></td>
                       <td>${Number(p.fixture_avg ?? 3).toFixed(2)}</td>
                       <td><span class="confidence ${String(p.confidence || '').toLowerCase()}">${escapeHtml(p.confidence)}</span></td>
                       <td><div class="reasons">${(p.reasons || []).map(r => `<span>${escapeHtml(r)}</span>`).join('')}</div></td>
@@ -67,9 +81,11 @@ const FPL_ANALYSIS = (() => {
           </section>`).join('')}
         <details class="analysis-method">
           <summary>How the engine scores players</summary>
-          <p>Features are ranked within each position, then combined using role-specific weights. Historical seasons are weighted 50% 2024–25, 30% 2023–24 and 20% 2022–23 when available. Missing historical seasons reduce confidence rather than creating synthetic values.</p>
-          <p>FPL's legal squad ratio is preserved by taking 4 GK, 10 DEF, 10 MID and 6 FWD for the Top 30 shortlist. The engine intentionally avoids the historical dataset's scraped xP/ep fields because the source repository documents possible lookahead bias.</p>
+          <p>The next five fixtures are not just a generic FDR average. For every fixture, the engine looks at the player's historical GW records against that opponent, then checks whether those historical meetings were at home or away. The five fixture-specific historical averages are combined into a matchup signal.</p>
+          <p>Venue-specific history is Bayesian-shrunk toward the player's broader record against that opponent, so a single old home/away meeting cannot overpower a larger sample. The matchup signal is then ranked within position and given the largest single weight in the fixture-aware model.</p>
+          <p>Historical seasons are weighted 50% 2024–25, 30% 2023–24 and 20% 2022–23. 2024–25 GW22–38 are excluded from matchup history because the source dataset documents incorrect total_points values for those gameweeks. Historical xP/ep fields are excluded because they may contain lookahead information.</p>
           <p>Generated: ${escapeHtml(dataset.generated_at || 'unknown')}</p>
+          ${(dataset.warnings || []).length ? `<p><strong>Data warnings:</strong> ${dataset.warnings.map(escapeHtml).join(' · ')}</p>` : ''}
         </details>
       </div>`;
 
@@ -85,8 +101,6 @@ const FPL_ANALYSIS = (() => {
 })();
 
 // Auto-load the configured FPL manager's current selection into the planner.
-// The FPL endpoint returns the current gameweek picks, so after GW3 this is the
-// squad selected for the current/post-GW3 gameweek rather than a hard-coded XI.
 (() => {
   const DEFAULT_TEAM_ID = '2160927';
   const AUTO_KEY = 'fpl-squad-planner:auto-team:v1';
@@ -108,17 +122,13 @@ const FPL_ANALYSIS = (() => {
     try {
       const myTeamNav = await clickWhenReady('[data-view="myteam"]');
       myTeamNav.click();
-
       const input = await clickWhenReady('#teamId');
       input.value = DEFAULT_TEAM_ID;
       input.dispatchEvent(new Event('input', { bubbles: true }));
-
       const loadButton = await clickWhenReady('#loadTeam');
       loadButton.click();
-
       const loadInto = await clickWhenReady('#loadInto', 20000);
       loadInto.click();
-
       sessionStorage.setItem(AUTO_KEY, DEFAULT_TEAM_ID);
     } catch (err) {
       console.warn('[FPL Squad Planner] Automatic team load skipped:', err.message);
