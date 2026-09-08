@@ -1,0 +1,10 @@
+{
+  "generated_at":"2026-09-08T00:00:00Z",
+  "source":"Vaastav Fantasy-Premier-League historical cleaned_players.csv + current FPL snapshot",
+  "historical_seasons":["2022-23","2023-24","2024-25"],
+  "top30_quota":{"GK":4,"DEF":10,"MID":10,"FWD":6},
+  "position_ratio":"2:5:5:3",
+  "weights":{"GK":{"history":0.3,"current":0.2,"value":0.15,"fixture":0.15,"minutes":0.15,"availability":0.05},"DEF":{"history":0.25,"current":0.2,"value":0.15,"fixture":0.15,"minutes":0.1,"availability":0.05,"defence":0.1},"MID":{"history":0.25,"current":0.2,"value":0.15,"fixture":0.15,"minutes":0.1,"availability":0.05,"attack":0.1},"FWD":{"history":0.25,"current":0.2,"value":0.15,"fixture":0.15,"minutes":0.1,"availability":0.05,"attack":0.1}},
+  "selection_notes":["Top 30 is position-balanced to the legal FPL squad ratio: 4 GK, 10 DEF, 10 MID, 6 FWD.","Scores are position-relative percentiles, not official FPL projections.","Historical seasons are weighted toward more recent seasons when available.","The historical dataset's xP/ep fields are intentionally excluded from the analysis because its README warns about potential lookahead bias."],
+  "players":[]
+}
