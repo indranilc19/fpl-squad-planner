@@ -1,17 +1,13 @@
 """Build a position-balanced Top 30 FPL analysis dataset with fixture-specific history.
 
-The ranking is deliberately fixture-aware. For each current player we inspect the
-next five fixtures and combine:
-- current FPL form/value/availability;
-- multi-season historical output;
-- historical gameweek-by-gameweek performance against each upcoming opponent;
-- whether those historical meetings were home or away;
-- the current FPL difficulty rating for each upcoming fixture.
+The ranking is fixture-aware. For each current player we inspect the next five
+fixtures and combine current FPL form/value/availability, multi-season output,
+historical gameweek-by-gameweek performance against each upcoming opponent,
+home/away history, and the current FPL difficulty rating.
 
 Vaastav's 2024-25 merged GW file has a documented total_points issue for GW22-38,
 so matchup history uses 2024-25 only through GW21 and uses all GWs for 2022-23 and
-2023-24. The cleaned season totals can still be used for the broader historical
-signal. Historical xP/ep is never used because it can contain lookahead bias.
+2023-24. Historical xP/ep is never used because it can contain lookahead bias.
 """
 from __future__ import annotations
 
@@ -44,8 +40,7 @@ WEIGHTS = {
 
 def norm(value: object) -> str:
     text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
-    text = re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
-    return text
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
 
 def fnum(row: dict, key: str, default: float = 0.0) -> float:
@@ -102,10 +97,9 @@ def weighted_history(rows: list[dict]) -> dict:
     def avg(field: str) -> float:
         return sum(fnum(by_season[s], field) * w for s, w in weights.items()) / total
 
-    minutes = avg("minutes")
     return {
         "points": avg("total_points"),
-        "minutes": minutes,
+        "minutes": avg("minutes"),
         "goals": avg("goals_scored"),
         "assists": avg("assists"),
         "clean_sheets": avg("clean_sheets"),
@@ -113,13 +107,14 @@ def weighted_history(rows: list[dict]) -> dict:
 
 
 def load_matchup_history(candidate_names: set[str]) -> tuple[dict, list[str]]:
-    """Return player/opponent/venue aggregates from historical GW files."""
-    aggregate = defaultdict(lambda: {"rows": 0, "points": 0.0, "minutes": 0.0, "weighted_points": 0.0, "weighted_minutes": 0.0})
-    all_history = defaultdict(lambda: {"rows": 0, "points": 0.0, "minutes": 0.0})
+    """Aggregate player GW records by opponent and home/away venue."""
+    aggregate = defaultdict(lambda: {
+        "rows": 0, "weight_sum": 0.0, "points": 0.0, "minutes": 0.0,
+        "weighted_points": 0.0, "weighted_minutes": 0.0,
+    })
     warnings = []
 
     for season in SEASONS:
-        # The repository documents incorrect total_points in 2024-25 GW22-38.
         max_gw = 21 if season == "2024-25" else 38
         try:
             teams_reader = fetch_csv(f"{BASE}/{season}/teams.csv")
@@ -143,21 +138,13 @@ def load_matchup_history(candidate_names: set[str]) -> tuple[dict, list[str]]:
                 points = fnum(row, "total_points")
                 minutes = fnum(row, "minutes")
                 weight = SEASON_WEIGHT[season]
-                key = (name, opponent, venue)
-                aggregate[key]["rows"] += 1
-                aggregate[key]["points"] += points
-                aggregate[key]["minutes"] += minutes
-                aggregate[key]["weighted_points"] += points * weight
-                aggregate[key]["weighted_minutes"] += minutes * weight
-                overall_key = (name, opponent, "ALL")
-                aggregate[overall_key]["rows"] += 1
-                aggregate[overall_key]["points"] += points
-                aggregate[overall_key]["minutes"] += minutes
-                aggregate[overall_key]["weighted_points"] += points * weight
-                aggregate[overall_key]["weighted_minutes"] += minutes * weight
-                all_history[name]["rows"] += 1
-                all_history[name]["points"] += points
-                all_history[name]["minutes"] += minutes
+                for key in ((name, opponent, venue), (name, opponent, "ALL")):
+                    aggregate[key]["rows"] += 1
+                    aggregate[key]["weight_sum"] += weight
+                    aggregate[key]["points"] += points
+                    aggregate[key]["minutes"] += minutes
+                    aggregate[key]["weighted_points"] += points * weight
+                    aggregate[key]["weighted_minutes"] += minutes * weight
         except Exception as exc:
             warnings.append(f"{season} GW history unavailable: {exc}")
 
@@ -165,18 +152,18 @@ def load_matchup_history(candidate_names: set[str]) -> tuple[dict, list[str]]:
 
 
 def matchup_stat(aggregate: dict, player_name: str, opponent_name: str, venue: str, prior_ppg: float) -> dict:
-    """Bayesian-shrink venue-specific history toward opponent and player priors."""
-    overall = aggregate.get((player_name, opponent_name, "ALL"), {"rows": 0, "weighted_points": 0.0, "weighted_minutes": 0.0})
-    venue_row = aggregate.get((player_name, opponent_name, venue), {"rows": 0, "weighted_points": 0.0, "weighted_minutes": 0.0})
+    """Use venue-specific history but shrink tiny samples toward opponent history."""
+    empty = {"rows": 0, "weight_sum": 0.0, "weighted_points": 0.0, "weighted_minutes": 0.0}
+    overall = aggregate.get((player_name, opponent_name, "ALL"), empty)
+    venue_row = aggregate.get((player_name, opponent_name, venue), empty)
     prior_matches = 3.0
-    overall_ppg = (overall["weighted_points"] / max(overall["rows"], 1)) if overall["rows"] else prior_ppg
-    venue_ppg = (venue_row["weighted_points"] / max(venue_row["rows"], 1)) if venue_row["rows"] else overall_ppg
-    if venue_row["rows"]:
-        # Strong venue signal when we have repeated meetings, but never let a tiny sample dominate.
-        venue_shrunk = (venue_row["weighted_points"] + overall_ppg * prior_matches) / (venue_row["rows"] + prior_matches)
+    overall_ppg = overall["weighted_points"] / overall["weight_sum"] if overall["weight_sum"] else prior_ppg
+    venue_ppg = venue_row["weighted_points"] / venue_row["weight_sum"] if venue_row["weight_sum"] else overall_ppg
+    if venue_row["weight_sum"]:
+        venue_shrunk = (venue_row["weighted_points"] + overall_ppg * prior_matches) / (venue_row["weight_sum"] + prior_matches)
         effective = venue_shrunk * 0.70 + overall_ppg * 0.30
-    elif overall["rows"]:
-        effective = (overall["weighted_points"] + prior_ppg * prior_matches) / (overall["rows"] + prior_matches)
+    elif overall["weight_sum"]:
+        effective = (overall["weighted_points"] + prior_ppg * prior_matches) / (overall["weight_sum"] + prior_matches)
     else:
         effective = prior_ppg
     return {
@@ -192,7 +179,8 @@ def build() -> None:
     current = json.loads(PLAYERS_FILE.read_text(encoding="utf-8"))
     players = current.get("players", [])
     teams = {int(t["id"]): t for t in current.get("teams", []) if "id" in t}
-    fixtures = json.loads((ROOT / "data" / "fixtures.json").read_text(encoding="utf-8")).get("fixtures", []) if (ROOT / "data" / "fixtures.json").exists() else []
+    fixtures_file = ROOT / "data" / "fixtures.json"
+    fixtures = json.loads(fixtures_file.read_text(encoding="utf-8")).get("fixtures", []) if fixtures_file.exists() else []
     events = current.get("events", [])
     selected_gw = next((e["id"] for e in events if e.get("is_next")), None) or next((e["id"] for e in events if e.get("is_current")), 1)
 
@@ -220,9 +208,7 @@ def build() -> None:
             upcoming = [f for f in fixtures if f.get("event") is not None and f.get("event") >= selected_gw and (f.get("team_h") == team_id or f.get("team_a") == team_id)]
             upcoming.sort(key=lambda x: (x.get("event") or 999, x.get("kickoff_time") or ""))
             upcoming = upcoming[:5]
-            diffs = []
-            fixture_details = []
-            hist_ppgs = []
+            diffs, hist_ppgs, fixture_details = [], [], []
             prior_ppg = c["history"]["points"] / max(c["history"]["minutes"] / 90.0, 1.0) if c["history"]["minutes"] else max(fnum(p, "total_points") / max(fnum(p, "minutes") / 90.0, 1.0), 2.0)
             for fx in upcoming:
                 home = fx.get("team_h") == team_id
@@ -234,15 +220,18 @@ def build() -> None:
                 diffs.append(diff)
                 hist_ppgs.append(mh["ppg"])
                 fixture_details.append({
-                    "gw": int(fx.get("event")), "opponent": teams.get(int(opp_id or 0), {}).get("short_name", "—"),
-                    "home": home, "difficulty": diff, "historical_ppg": mh["ppg"],
-                    "historical_matches": mh["matches"], "venue_matches": mh["venue_matches"],
+                    "gw": int(fx.get("event")),
+                    "opponent": teams.get(int(opp_id or 0), {}).get("short_name", "—"),
+                    "home": home,
+                    "difficulty": diff,
+                    "historical_ppg": mh["ppg"],
+                    "historical_matches": mh["matches"],
+                    "venue_matches": mh["venue_matches"],
                     "historical_venue_ppg": mh["venue_ppg"],
                 })
             fixture_avgs[p["id"]] = sum(diffs) / len(diffs) if diffs else 3.0
             matchup_values[p["id"]] = sum(hist_ppgs) / len(hist_ppgs) if hist_ppgs else prior_ppg
             c["fixtures"] = fixture_details
-            c["matchup_ppg"] = matchup_values[p["id"]]
 
         pools = {
             "history": [c["history"]["points"] for c in group],
@@ -273,12 +262,9 @@ def build() -> None:
             confidence = "High" if hist["minutes"] >= 2000 and seasons_found >= 2 and matchup_ppg > 0 else "Medium" if hist["minutes"] >= 800 or matchup_ppg > 0 else "Low"
 
             reasons = []
-            if parts["matchup"] >= 80:
-                reasons.append(f"Strong vs next-5 opponents ({matchup_ppg:.1f} pts/match)")
-            elif parts["matchup"] <= 30:
-                reasons.append(f"Weak vs next-5 opponents ({matchup_ppg:.1f} pts/match)")
-            if any(x["venue_matches"] >= 2 for x in c["fixtures"]):
-                reasons.append("Home/away history included")
+            if parts["matchup"] >= 80: reasons.append(f"Strong vs next-5 opponents ({matchup_ppg:.1f} pts/match)")
+            elif parts["matchup"] <= 30: reasons.append(f"Weak vs next-5 opponents ({matchup_ppg:.1f} pts/match)")
+            if any(x["venue_matches"] >= 2 for x in c["fixtures"]): reasons.append("Home/away history included")
             if parts["fixture"] >= 75: reasons.append("Favourable next-5 FDR")
             elif parts["fixture"] <= 30: reasons.append("Difficult next-5 FDR")
             if parts["current"] >= 75: reasons.append("Excellent current form")
@@ -289,13 +275,20 @@ def build() -> None:
             if not reasons: reasons.append("Balanced form, history and fixture profile")
 
             c["analysis"] = {
-                "score": round(score, 1), "confidence": confidence,
+                "score": round(score, 1),
+                "confidence": confidence,
                 "team": teams.get(int(p.get("team") or 0), {}).get("short_name", "—"),
-                "price": round(fnum(p, "now_cost") / 10.0, 1), "form": round(fnum(p, "form"), 1),
-                "points": int(fnum(p, "total_points")), "historical_points": round(hist["points"], 1),
-                "historical_minutes": int(hist["minutes"]), "value": round(fnum(p, "total_points") / max(fnum(p, "now_cost") / 10.0, 1.0), 2),
-                "fixture_avg": round(fixture_avg, 2), "matchup_ppg": round(matchup_ppg, 2),
-                "availability": int(availability), "next_fixtures": c["fixtures"], "reasons": reasons[:4],
+                "price": round(fnum(p, "now_cost") / 10.0, 1),
+                "form": round(fnum(p, "form"), 1),
+                "points": int(fnum(p, "total_points")),
+                "historical_points": round(hist["points"], 1),
+                "historical_minutes": int(hist["minutes"]),
+                "value": round(fnum(p, "total_points") / max(fnum(p, "now_cost") / 10.0, 1.0), 2),
+                "fixture_avg": round(fixture_avg, 2),
+                "matchup_ppg": round(matchup_ppg, 2),
+                "availability": int(availability),
+                "next_fixtures": c["fixtures"],
+                "reasons": reasons[:4],
             }
 
     final = []
@@ -305,9 +298,14 @@ def build() -> None:
         for position_rank, c in enumerate(role_players[:quota], 1):
             p, a = c["raw"], c["analysis"]
             final.append({
-                "rank": 0, "position_rank": position_rank, "id": p.get("id"),
-                "first_name": p.get("first_name"), "second_name": p.get("second_name"),
-                "web_name": p.get("web_name", p.get("second_name")), "position": pos, **a,
+                "rank": 0,
+                "position_rank": position_rank,
+                "id": p.get("id"),
+                "first_name": p.get("first_name"),
+                "second_name": p.get("second_name"),
+                "web_name": p.get("web_name", p.get("second_name")),
+                "position": pos,
+                **a,
             })
     final.sort(key=lambda x: x["score"], reverse=True)
     for rank, item in enumerate(final, 1): item["rank"] = rank
@@ -315,12 +313,15 @@ def build() -> None:
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": "Vaastav FPL season totals + gameweek history (2022-23, 2023-24, 2024-25 through GW21) + current FPL snapshot",
-        "historical_seasons": SEASONS, "top30_quota": TOP30_QUOTA, "position_ratio": "2:5:5:3",
-        "next_fixture_count": 5, "weights": WEIGHTS,
+        "historical_seasons": SEASONS,
+        "top30_quota": TOP30_QUOTA,
+        "position_ratio": "2:5:5:3",
+        "next_fixture_count": 5,
+        "weights": WEIGHTS,
         "selection_notes": [
             "Ranking is position-balanced: 4 GK, 10 DEF, 10 MID, 6 FWD.",
             "The next five fixtures directly affect the score; current FPL FDR is combined with player-specific historical performance against those opponents.",
-            "Historical matchup performance is split by home/away. Venue samples are shrunk toward the player's broader opponent record so one match cannot dominate.",
+            "Historical matchup performance is split by home/away. Venue samples are shrunk toward the broader opponent record so one match cannot dominate.",
             "Historical seasons are weighted 50% 2024-25, 30% 2023-24 and 20% 2022-23 when available.",
             "2024-25 GW22-38 are excluded from matchup history because the source repository documents incorrect total_points values for those gameweeks.",
             "Historical xP/ep fields are excluded because the source repository warns they can contain lookahead information.",
