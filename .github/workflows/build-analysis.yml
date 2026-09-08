@@ -2,6 +2,13 @@ name: Build historical player analysis
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_analysis.py"
+      - "data/players.json"
+      - "data/fixtures.json"
+      - ".github/workflows/build-analysis.yml"
   schedule:
     - cron: "45 7,17 * * *"
 
