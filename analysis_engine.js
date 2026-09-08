@@ -9,8 +9,8 @@ const FPL_ANALYSIS = (() => {
   }
 
   function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, c => ({
-      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    return String(value ?? '').replace(/[&<>\"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;'
     }[c]));
   }
 
@@ -82,4 +82,50 @@ const FPL_ANALYSIS = (() => {
   }
 
   return { load, render };
+})();
+
+// Auto-load the configured FPL manager's current selection into the planner.
+// The FPL endpoint returns the current gameweek picks, so after GW3 this is the
+// squad selected for the current/post-GW3 gameweek rather than a hard-coded XI.
+(() => {
+  const DEFAULT_TEAM_ID = '2160927';
+  const AUTO_KEY = 'fpl-squad-planner:auto-team:v1';
+
+  function clickWhenReady(selector, timeout = 15000) {
+    return new Promise((resolve, reject) => {
+      const started = Date.now();
+      const tick = () => {
+        const el = document.querySelector(selector);
+        if (el) return resolve(el);
+        if (Date.now() - started > timeout) return reject(new Error(`Timed out waiting for ${selector}`));
+        setTimeout(tick, 100);
+      };
+      tick();
+    });
+  }
+
+  async function loadConfiguredTeam() {
+    try {
+      const myTeamNav = await clickWhenReady('[data-view="myteam"]');
+      myTeamNav.click();
+
+      const input = await clickWhenReady('#teamId');
+      input.value = DEFAULT_TEAM_ID;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+
+      const loadButton = await clickWhenReady('#loadTeam');
+      loadButton.click();
+
+      const loadInto = await clickWhenReady('#loadInto', 20000);
+      loadInto.click();
+
+      sessionStorage.setItem(AUTO_KEY, DEFAULT_TEAM_ID);
+    } catch (err) {
+      console.warn('[FPL Squad Planner] Automatic team load skipped:', err.message);
+    }
+  }
+
+  if (!sessionStorage.getItem(AUTO_KEY)) {
+    window.addEventListener('load', () => setTimeout(loadConfiguredTeam, 150));
+  }
 })();
